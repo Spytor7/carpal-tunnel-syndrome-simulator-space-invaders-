@@ -1,0 +1,193 @@
+from pygame import *
+
+# Inicializa Pygame
+init()
+font.init()
+A_pressed = D_pressed = Finish = Shooting = False
+score = 0
+Ammo = sprite.Group()
+enemyspeed = 1
+class Un_sprite(sprite.Sprite):
+    def __init__(self, image, speed, x, y):
+        super().__init__()
+        self.image = image
+        self.speed = speed
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+    def move_left(self):
+        self.rect.x -= self.speed
+    
+    def move_right(self):
+        self.rect.x += self.speed
+
+    def reset(self):
+        window.blit(self.image, (self.rect.x, self.rect.y))  # ¡Ahora se dibuja! ✨
+
+class Player(Un_sprite):
+    def movimiento(self):
+        if A_pressed:
+            if self.rect.x > 0:
+                self.move_left()
+        if D_pressed:
+            if self.rect.x < 646:    
+                self.move_right()
+    
+    def disparar(self):
+        x = self.rect.centerx -25
+        y = self.rect.top
+        balin = Bullet(transform.scale(image.load("bullet.png"), (50, 80)), 10, x, y)
+        Ammo.add(balin)
+        fire.play()
+
+class Enemigo(Un_sprite):
+    def __init__(self, image, speed, x, y):
+        super().__init__(image, speed, x, y)
+        self.moviendo_derecha = True  # Ahora no explota el juego UwU
+
+    def update(self):
+        if self.rect.x > 630:
+            self.moviendo_derecha = False
+            self.rect.y += 50
+        if self.rect.x < 20:
+            self.moviendo_derecha = True
+            self.rect.y += 50
+        if self.moviendo_derecha:
+            self.move_right()
+        else:
+            self.move_left()
+        
+        if self.rect.y > 450:
+            global Finish
+            Finish = True
+
+class Wall(sprite.Sprite):
+    def __init__(self, wallx, wally, grasa, alto):
+        super().__init__()
+        self.image = Surface((grasa, alto))
+        self.image.fill((120, 190, 255))
+        self.rect = self.image.get_rect()
+        self.rect.x = wallx
+        self.rect.y = wally
+    
+    def draw_wall(self):
+        window.blit(self.image, (self.rect.x, self.rect.y))
+
+class Bullet(sprite.Sprite):
+    def __init__(self, image, speed, x, y):
+        super().__init__()  
+        self.image = image
+        self.speed = speed
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+    def update(self):
+        self.rect.y -= self.speed
+        if self.rect.y < -100:
+            self.kill()
+
+
+# Configuración inicial
+window = display.set_mode((700, 500))
+display.set_caption("Space Tax Recaudors")
+background = Un_sprite(transform.scale(image.load("galaxy.jpg"), (700, 500)), 0, 0, 0)
+rocket = Player(transform.scale(image.load("rocket.png"), (50, 80)), 5, 250, 400)
+clock = time.Clock()
+game_font = font.Font(None, 45)
+whilegame_text = game_font.render(("Score: " + str(score)), True, (255,255,255))
+
+Enemies = sprite.Group()
+
+
+
+
+# )()(
+
+
+# Variables para movimiento continuo
+
+
+mixer.init()
+fire = mixer.Sound("fire.ogg")
+mixer.music.load("SpaceMusic.ogg")
+mixer.music.play()
+
+
+
+# Bucle principal del juego
+game = True
+while game:
+    window.fill((0, 0, 0))  # Limpia la pantalla en cada frame
+    if len(Enemies) == 0:
+        enemyspeed *= 1.2
+        for a in range(50,290,80):
+            for i in range(20,660,80):
+                ufo = Enemigo(transform.scale(image.load("ufo.png"), (50, 50)), enemyspeed, i, a)
+                Enemies.add(ufo)
+                
+
+
+    for e in event.get():
+        if e.type == QUIT:
+            game = False  # Cierra el juego
+        elif e.type == KEYDOWN:  # Detecta cuando se PRESIONA una tecla
+            if e.key == K_a:
+                A_pressed = True
+            elif e.key == K_d:
+                D_pressed = True
+            if e.key == K_z:
+                rocket.disparar()
+            if e.key == K_x:
+                rocket.disparar()
+            if e.key == K_c:
+                rocket.disparar()
+            if e.key == K_v:
+                rocket.disparar()
+            if e.key == K_b:
+                rocket.disparar()
+            if e.key == K_n:
+                rocket.disparar()
+            if e.key == K_m:
+                rocket.disparar()
+        elif e.type == KEYUP:  # Detecta cuando se SUELTA una tecla
+            if e.key == K_a:
+                A_pressed = False
+            elif e.key == K_d:
+                D_pressed = False
+
+    background.reset()
+
+    if not Finish:
+        # Movimiento continuo mientras la tecla esté presionada
+        rocket.movimiento()
+        Enemies.update()
+
+        # Dibuja los elementos en la pantalla
+        rocket.reset()
+        Enemies.draw(window)
+        Ammo.update()
+        Ammo.draw(window)
+        window.blit(whilegame_text, (12,12))
+
+        for bullet in Ammo:
+            hit_list = sprite.spritecollide(bullet, Enemies, False)  # No eliminamos aún a los enemigos
+            if hit_list:
+                # Encontrar el enemigo más cercano al centro de la bala
+                closest_enemy = min(hit_list, key=lambda enemy: abs(enemy.rect.centerx - bullet.rect.centerx))
+                
+                closest_enemy.kill()  # Solo eliminamos el enemigo más cercano
+                bullet.kill()  # Eliminamos la bala
+                score += 1  # Aumentamos la puntuación
+                whilegame_text = game_font.render(("Score: " + str(score)), True, (255,255,255))
+
+    else:
+        # Si el juego ha terminado, muestra un mensaje
+        lose = game_font.render(("Congrats, you've scored: " + str(score) + " points"), True, (255,255,255))
+        window.blit(lose, (50, 100))
+
+    display.update()  # Siempre actualizar la pantalla
+    clock.tick(60)  # Controla los FPS
+
+quit()
